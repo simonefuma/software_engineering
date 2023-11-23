@@ -1,0 +1,202 @@
+• GIT
+	
+	comandi:
+		• git branch
+		• git checkout
+		• git push origin --all
+		• git push origin --tags
+
+
+		• git flow init
+		• git flow feature start <NOME FEATURE>
+		• git flow feature finish
+		• git flow release start <NOME RELEASE>
+		• git flow release finish
+
+	quando si vuole fare una release bisogna spostarsi in main (git checkout main) aprire una release e chiuderla
+	dopo per pushare bisogna usare i seguenti comandi (git push origin --all) (git push origin --tags)
+	per continuare controllare di essere nel branch develop.
+
+
+Per la progettazione fare attenzione a REFERENCE ESCAPING all'interno dei costruttori, motodi getter e setter e funzioni che restituiscono un iteratore
+se necessario ricordarsi di inserire i @NotNull
+
+un NullObject e un parametro statico che implementa una interfaccia riscrivendo i metodi per un oggetto NULL
+
+public static CardSource NULL = new CardSource() {
+	public boolean isEmpty() { return true; }
+	public Card draw() {
+		assert !isEmpty();
+		return null;
+	}
+};
+
+• PATTERN
+	
+	link: https://marcobuster.github.io/sweng/08_patterns/00_index.html
+
+• TEST
+
+	• import static org.assertj.core.api.Assertions.*;
+	• import static org.mockito.Mockito.*;
+	• import org.mockito.InjectMocks;
+	• import org.mockito.Mock;
+
+	• @Test
+	• @ParameterizedTest
+	  • @CsvSource({"..., ...", "..., ..."})
+	  • @ValueSource(... = {..., ..., ...})
+
+
+	• MOCKITO
+
+	---------------------------------------------------------------------------------
+
+	• Injection (l'oggetto da moccare non può essere final, commenta il final)
+
+	@ExtendWith(MockitoExtension.class)
+	public class Test {
+
+		@Mock
+		Object oggetto_da_moccare;
+
+		@InjectMocks
+		Object SUT = new Object();
+
+		...
+
+	}
+
+	------------------------------------------------------------------------------------
+
+	SLIDE 57
+	link: https://gitlab.di.unimi.it/ingegneriadelsoftware/materiale2023/-/raw/main/slides/IS2023-L11.pdf
+
+	MyClass stub = mock(MyClass.class);
+    when(stub.getValue(0)).thenReturn(4);
+    when(stub.getValue(1)).thenReturn(7, 3);
+
+    // la verify può essere fatta anche InOrder.
+    InOrder io = inOrder(mock); 
+    io.verify(mock).getValue(0); 
+    io.verify(mock, times(2)).getValue(1); 
+
+    se l'oggetto è vero possiamo usare spy(new MyClass());
+    così poi possiamo usare i verify
+
+    -------------------------------------------------------------------------------------------------------------
+
+    • Mock Utils (per moccare oggetti iterabili)
+
+    public class MockUtils {
+  		@SafeVarargs
+  		public static <T> void whenIterated(Iterable<T> p, T... d) {
+		    when(p.iterator()).thenAnswer((Answer<Iterator<T>>) invocation -> List.of(d).iterator());
+		}
+	}
+
+	-------------------------------------------------------------------------------------------------------------
+
+	• MockedCostruction esempio normale e fattorizzazione 
+
+	@Test
+    void carteInizialiMazziere() {
+        try(MockedConstruction<MultiMazzo> mocked = mockConstruction(MultiMazzo.class, (mock, context) -> {
+            when(mock.draw()).thenReturn(Card.get(Rank.ACE, Suit.HEARTS));
+        })) {
+
+            Mazziere SUT = new Mazziere();
+            SUT.carteIniziali();
+            assertThatIterable(SUT::getCards).containsExactlyInAnyOrder(
+                    Card.get(Rank.ACE, Suit.HEARTS)
+            );
+
+            //mocked.constructed().get(i); restituisce l'iesimo oggetto costruito
+        }
+    }
+
+    • Fattorizzando
+
+    @Test
+    void mockedCostructionTest() {
+        mockedCostruction(
+                (mock, context) -> when(mock.draw()).thenReturn(Card.get(Rank.ACE, Suit.HEARTS)),
+                () -> {
+                    Mazziere SUT = new Mazziere();
+                    SUT.carteIniziali();
+                    assertThatIterable(SUT::getCards).containsExactlyInAnyOrder(
+                            Card.get(Rank.ACE, Suit.HEARTS)
+                    );
+                });
+    }
+
+    void mockedCostruction(BiConsumer<MultiMazzo, MockedConstruction.Context> initializer, Runnable execute) {
+        try(MockedConstruction<MultiMazzo> mocked = mockConstruction(MultiMazzo.class, initializer::accept)) {
+            execute.run();
+        }
+    }
+
+    -----------------------------------------------------------------------------------------------------------------
+
+	• Convertire da Stringa a lista di carte
+
+	import java.util.ArrayList;
+	import java.util.List;
+	import java.util.Scanner;
+
+	public class CardConverter {
+
+	    public static List<Card> listCardsToString(String str) {
+	        Scanner scanner = new Scanner(str);
+	        List<Card> cards = new ArrayList<>();
+	        while(scanner.hasNext())
+	            cards.add(cardToString(scanner.next()));
+	        return cards;
+	    }
+
+	    public static Card cardToString(String str) {
+	        String rank;
+	        String suit;
+
+	        if(str.length() == 2) {
+	            rank = String.valueOf(str.charAt(0));
+	            suit = String.valueOf(str.charAt(1));
+	        } else {
+	            rank = str.substring(0, 2);
+	            suit = String.valueOf(str.charAt(2));
+	        }
+
+	        return Card.get(rankToString(rank), suitToString(suit));
+	    }
+
+	    public static Rank rankToString(String str) {
+	        return switch(str) {
+	            case "1" -> Rank.ACE;
+	            case "2" -> Rank.TWO;
+	            case "3" -> Rank.THREE;
+	            case "4" -> Rank.FOUR;
+	            case "5" -> Rank.FIVE;
+	            case "6" -> Rank.SIX;
+	            case "7" -> Rank.SEVEN;
+	            case "8" -> Rank.EIGHT;
+	            case "9" -> Rank.NINE;
+	            case "10" -> Rank.TEN;
+	            case "J" -> Rank.JACK;
+	            case "Q" -> Rank.QUEEN;
+	            case "K" -> Rank.KING;
+	            default -> throw new IllegalStateException("Unexpected value: " + str);
+	        };
+	    }
+
+	    public static Suit suitToString(String str) {
+	        return switch(str) {
+	            case "C" -> Suit.CLUBS;
+	            case "D" -> Suit.DIAMONDS;
+	            case "H" -> Suit.HEARTS;
+	            case "S" -> Suit.SPADES;
+	            default -> throw new IllegalStateException("Unexpected value: " + str);
+	        };
+	    }
+	}
+
+
